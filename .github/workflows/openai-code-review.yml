@@ -85,15 +85,6 @@ jobs:
         env:
           WORKFLOW_REF: ${{ github.workflow_ref }}
 
-      - name: Checkout workflow utilities
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ steps.workflow-source.outputs.repo }}
-          ref: ${{ steps.workflow-source.outputs.ref }}
-          path: reusable-workflows
-          fetch-depth: 1
-          token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -104,6 +95,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install openai requests PyGithub
 
+      - name: Debugging
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Files in current directory:" 
+          ls -la
+
       - name: Run AI Code Review
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -113,13 +110,12 @@ jobs:
           WORKFLOW_REPO: ${{ steps.workflow-source.outputs.repo }}
           WORKFLOW_REF: ${{ steps.workflow-source.outputs.ref }}
           WORKFLOW_REF_NAME: ${{ steps.workflow-source.outputs.ref-name }}
+          SCRIPT_PATH: scripts/python/ai-code-review.py
         run: |
           set -euo pipefail
 
-          REVIEWER_SCRIPT="scripts/python/ai-code-review.py"
-
-          if [ ! -f "$REVIEWER_SCRIPT" ]; then
-            echo "::error::Reviewer script not found at ${REVIEWER_SCRIPT}."
+          if [ ! -f "$SCRIPT_PATH" ]; then
+            echo "::error::Reviewer script not found at ${SCRIPT_PATH}."
             echo "Make sure the 'Checkout workflow utilities' step has access to ${WORKFLOW_REPO}@${WORKFLOW_REF_NAME:-${WORKFLOW_REF}}."
             echo "Tip: provide a token with read access via the GITHUB_TOKEN secret (for checkout) or REVIEW_BOT_TOKEN secret (for API calls) when consuming this workflow from another repository."
             echo "Workspace layout (depth 3):"
@@ -127,8 +123,8 @@ jobs:
             exit 1
           fi
 
-          echo "Using reviewer script at: $REVIEWER_SCRIPT"
-          python "$REVIEWER_SCRIPT"
+          echo "Using reviewer script at: $SCRIPT_PATH"
+          python "$SCRIPT_PATH"
 
       - name: Comment summary on PR
         uses: actions/github-script@v7
