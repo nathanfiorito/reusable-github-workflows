@@ -1,0 +1,128 @@
+name: Build and Publish
+
+on:
+  workflow_call:
+    inputs:
+      project_directory:
+        description: Relative path to the project root that should be built and tested.
+        required: true
+        type: string
+      publish_image:
+        description: Enables the Docker publish job when the workflow is reused.
+        required: false
+        type: boolean
+        default: true
+      docker_context:
+        description: Build context passed to Docker.
+        required: true
+        type: string
+      dockerfile:
+        description: Path to the Dockerfile, relative to the repository root.
+        required: true
+        type: string
+      docker_image:
+        description: Image name (including registry/repository) used for pushes.
+        required: true
+        type: string
+      docker_registry:
+        description: Registry used during docker login (set to docker.io for Docker Hub).
+        required: false
+        type: string
+        default: ghcr.io
+    secrets:
+      REGISTRY_USERNAME:
+        description: Optional registry username override.
+        required: false
+      REGISTRY_PASSWORD:
+        description: Optional registry password or token override.
+        required: false
+
+env:
+  PROJECT_DIR: ${{ (github.event_name == 'workflow_call' && inputs.project_directory) || vars.PROJECT_DIRECTORY }}
+  DOCKER_CONTEXT: ${{ (github.event_name == 'workflow_call' && inputs.docker_context) || vars.DOCKER_CONTEXT }}
+  DOCKERFILE: ${{ (github.event_name == 'workflow_call' && inputs.dockerfile) || vars.DOCKERFILE }}
+  DOCKER_IMAGE: ${{ (github.event_name == 'workflow_call' && inputs.docker_image) || vars.DOCKER_IMAGE }}
+  DOCKER_REGISTRY: ${{ (github.event_name == 'workflow_call' && inputs.docker_registry) || vars.DOCKER_REGISTRY || 'ghcr.io' }}
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./${{ env.PROJECT_DIR }}
+    steps:
+      - name: Validate configuration
+        run: |
+          missing=0
+          for var in PROJECT_DIR DOCKER_CONTEXT DOCKERFILE DOCKER_IMAGE; do
+            value="${!var}"
+            if [ -z "${value}" ]; then
+              echo "Required configuration '$var' not provided. Set workflow input or repository variable." >&2
+              missing=1
+            fi
+          done
+          if [ "${missing}" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: 21
+          distribution: temurin
+          cache: maven
+
+      - name: Build and verify project
+        run: mvn -B verify
+
+  publish-image:
+    name: Publish Docker Image
+    needs: build-test
+    if: >-
+      ${{
+        (
+          github.event_name != 'workflow_call' ||
+          inputs.publish_image
+        ) && (
+          github.ref == 'refs/heads/main' ||
+          github.ref == 'refs/heads/develop'
+        )
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Log in to container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ secrets.REGISTRY_USERNAME != '' && secrets.REGISTRY_USERNAME || github.actor }}
+          password: ${{ secrets.REGISTRY_PASSWORD != '' && secrets.REGISTRY_PASSWORD || secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_IMAGE }}
+          tags: |
+            type=raw,value=release,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=snapshot,enable=${{ github.ref == 'refs/heads/develop' }}
+            type=sha
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ env.DOCKER_CONTEXT }}
+          file: ./${{ env.DOCKERFILE }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

@@ -1,0 +1,121 @@
+name: Pull Request Automation
+
+on:
+  workflow_call:
+    inputs:
+      auto_pr_script:
+        description: Path to the automation script responsible for opening pull requests.
+        required: false
+        type: string
+        default: scripts/create-pr.sh
+      feature_prefix:
+        description: Branch prefix that should trigger the feature PR automation.
+        required: false
+        type: string
+        default: feature/
+      feature_target:
+        description: Base branch for feature pull requests.
+        required: false
+        type: string
+        default: develop
+      feature_title_prefix:
+        description: Title prefix applied to feature pull requests.
+        required: false
+        type: string
+        default: Feature
+      enable_auto_pr_feature:
+        description: Enables the feature auto PR job when the workflow is reused.
+        required: false
+        type: boolean
+        default: true
+      hotfix_prefix:
+        description: Branch prefix that should trigger the hotfix PR automation.
+        required: false
+        type: string
+        default: hotfix/
+      hotfix_target:
+        description: Base branch for hotfix pull requests.
+        required: false
+        type: string
+        default: main
+      hotfix_title_prefix:
+        description: Title prefix applied to hotfix pull requests.
+        required: false
+        type: string
+        default: Hotfix
+      enable_auto_pr_hotfix:
+        description: Enables the hotfix auto PR job when the workflow is reused.
+        required: false
+        type: boolean
+        default: true
+    secrets:
+      PR_AUTOMATION_TOKEN:
+        description: Optional personal access token used for automated pull requests.
+        required: false
+  push:
+    branches:
+      - 'feature/**'
+      - 'hotfix/**'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  auto-pr-feature:
+    name: Open Feature PR
+    if: >-
+      ${{
+        (
+          github.event_name != 'workflow_call' ||
+          inputs.enable_auto_pr_feature
+        ) && startsWith(
+          github.ref,
+          format(
+            'refs/heads/{0}',
+            (github.event_name == 'workflow_call' && inputs.feature_prefix) || 'feature/'
+          )
+        )
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Ensure pull request targeting feature base
+        env:
+          DEFAULT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FALLBACK_TOKEN: ${{ secrets.PR_AUTOMATION_TOKEN }}
+          AUTO_PR_SCRIPT: ${{ (github.event_name == 'workflow_call' && inputs.auto_pr_script) || 'scripts/create-pr.sh' }}
+          FEATURE_TARGET: ${{ (github.event_name == 'workflow_call' && inputs.feature_target) || 'develop' }}
+          FEATURE_TITLE_PREFIX: ${{ (github.event_name == 'workflow_call' && inputs.feature_title_prefix) || 'Feature' }}
+        run: bash "$AUTO_PR_SCRIPT" "$FEATURE_TARGET" "$FEATURE_TITLE_PREFIX"
+
+  auto-pr-hotfix:
+    name: Open Hotfix PR
+    if: >-
+      ${{
+        (
+          github.event_name != 'workflow_call' ||
+          inputs.enable_auto_pr_hotfix
+        ) && startsWith(
+          github.ref,
+          format(
+            'refs/heads/{0}',
+            (github.event_name == 'workflow_call' && inputs.hotfix_prefix) || 'hotfix/'
+          )
+        )
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Ensure pull request targeting hotfix base
+        env:
+          DEFAULT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FALLBACK_TOKEN: ${{ secrets.PR_AUTOMATION_TOKEN }}
+          AUTO_PR_SCRIPT: ${{ (github.event_name == 'workflow_call' && inputs.auto_pr_script) || 'scripts/create-pr.sh' }}
+          HOTFIX_TARGET: ${{ (github.event_name == 'workflow_call' && inputs.hotfix_target) || 'main' }}
+          HOTFIX_TITLE_PREFIX: ${{ (github.event_name == 'workflow_call' && inputs.hotfix_title_prefix) || 'Hotfix' }}
+        run: bash "$AUTO_PR_SCRIPT" "$HOTFIX_TARGET" "$HOTFIX_TITLE_PREFIX"
