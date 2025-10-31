@@ -84,7 +84,10 @@ jobs:
           AUTO_PR_SCRIPT: scripts/create-pr.sh
           FEATURE_TARGET: ${{ (github.event_name == 'workflow_call' && inputs.feature_target) || 'develop' }}
           FEATURE_TITLE_PREFIX: ${{ (github.event_name == 'workflow_call' && inputs.feature_title_prefix) || 'Feature' }}
-        run: bash "$AUTO_PR_SCRIPT" "$FEATURE_TARGET" "$FEATURE_TITLE_PREFIX"
+        run: |
+          sed -i 's/\r$//' "$AUTO_PR_SCRIPT"
+          chmod +x "$AUTO_PR_SCRIPT"
+          bash "$AUTO_PR_SCRIPT" "$FEATURE_TARGET" "$FEATURE_TITLE_PREFIX"
 
   auto-pr-hotfix:
     name: Open Hotfix PR
@@ -113,4 +116,7 @@ jobs:
           AUTO_PR_SCRIPT: scripts/create-pr.sh
           HOTFIX_TARGET: ${{ (github.event_name == 'workflow_call' && inputs.hotfix_target) || 'main' }}
           HOTFIX_TITLE_PREFIX: ${{ (github.event_name == 'workflow_call' && inputs.hotfix_title_prefix) || 'Hotfix' }}
-        run: bash "$AUTO_PR_SCRIPT" "$HOTFIX_TARGET" "$HOTFIX_TITLE_PREFIX"
+        run: |
+          sed -i 's/\r$//' "$AUTO_PR_SCRIPT"
+          chmod +x "$AUTO_PR_SCRIPT"
+          bash "$AUTO_PR_SCRIPT" "$HOTFIX_TARGET" "$HOTFIX_TITLE_PREFIX"
