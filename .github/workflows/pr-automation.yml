@@ -3,11 +3,6 @@ name: Pull Request Automation
 on:
   workflow_call:
     inputs:
-      auto_pr_script:
-        description: Path to the automation script responsible for opening pull requests.
-        required: false
-        type: string
-        default: scripts/create-pr.sh
       feature_prefix:
         description: Branch prefix that should trigger the feature PR automation.
         required: false
@@ -86,7 +81,7 @@ jobs:
         env:
           DEFAULT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FALLBACK_TOKEN: ${{ secrets.PR_AUTOMATION_TOKEN }}
-          AUTO_PR_SCRIPT: ${{ (github.event_name == 'workflow_call' && inputs.auto_pr_script) || 'scripts/create-pr.sh' }}
+          AUTO_PR_SCRIPT: scripts/create-pr.sh
           FEATURE_TARGET: ${{ (github.event_name == 'workflow_call' && inputs.feature_target) || 'develop' }}
           FEATURE_TITLE_PREFIX: ${{ (github.event_name == 'workflow_call' && inputs.feature_title_prefix) || 'Feature' }}
         run: bash "$AUTO_PR_SCRIPT" "$FEATURE_TARGET" "$FEATURE_TITLE_PREFIX"
@@ -115,7 +110,7 @@ jobs:
         env:
           DEFAULT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FALLBACK_TOKEN: ${{ secrets.PR_AUTOMATION_TOKEN }}
-          AUTO_PR_SCRIPT: ${{ (github.event_name == 'workflow_call' && inputs.auto_pr_script) || 'scripts/create-pr.sh' }}
+          AUTO_PR_SCRIPT: scripts/create-pr.sh
           HOTFIX_TARGET: ${{ (github.event_name == 'workflow_call' && inputs.hotfix_target) || 'main' }}
           HOTFIX_TITLE_PREFIX: ${{ (github.event_name == 'workflow_call' && inputs.hotfix_title_prefix) || 'Hotfix' }}
         run: bash "$AUTO_PR_SCRIPT" "$HOTFIX_TARGET" "$HOTFIX_TITLE_PREFIX"

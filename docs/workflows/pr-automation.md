@@ -17,7 +17,6 @@ jobs:
   auto_pr:
     uses: nathanfiorito/reusable-githuib-workflows/.github/workflows/pr-automation.yml@main
     with:
-      auto_pr_script: scripts/create-pr.sh
       feature_prefix: feature/
       feature_target: develop
       feature_title_prefix: Feature
@@ -33,12 +32,12 @@ jobs:
 - Use `@main` apenas em desenvolvimento; prefira tags ou SHAs estáveis em produção.
 - `PR_AUTOMATION_TOKEN` só é necessário quando o `GITHUB_TOKEN` não possui permissão para abrir PRs no repositório de destino.
 - Ajuste os inputs de prefixo/target/título para refletir a convenção de branches do repositório consumidor.
+- Garanta que o repositório consumidor inclua o script `scripts/create-pr.sh` ou adapte a localização antes de reutilizar o workflow (por exemplo, sincronizando esse diretório via submódulo).
 
 ## Inputs
 
 | Nome | Tipo | Default | Descrição |
 | --- | --- | --- | --- |
-| `auto_pr_script` | string | `scripts/create-pr.sh` | Script que cria o pull request (relativo à raiz do repositório). |
 | `feature_prefix` | string | `feature/` | Prefixo das branches que geram PRs para `feature_target`. |
 | `feature_target` | string | `develop` | Branch alvo dos PRs de feature. |
 | `feature_title_prefix` | string | `Feature` | Prefixo do título dos PRs de feature. |
