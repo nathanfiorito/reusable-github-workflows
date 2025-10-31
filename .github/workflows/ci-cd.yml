@@ -1,0 +1,222 @@
+name: CI/CD Pipeline
+
+on:
+  workflow_call:
+    inputs:
+      project_directory:
+        description: Relative path to the project root that should be built and tested.
+        required: false
+        type: string
+        default: kanban-core
+      publish_image:
+        description: Enables the Docker publish job when the workflow is reused.
+        required: false
+        type: boolean
+        default: true
+      docker_context:
+        description: Build context passed to Docker.
+        required: false
+        type: string
+        default: kanban-core
+      dockerfile:
+        description: Path to the Dockerfile, relative to the repository root.
+        required: false
+        type: string
+        default: kanban-core/Dockerfile
+      docker_image:
+        description: Base image name used for GHCR pushes.
+        required: false
+        type: string
+        default: ghcr.io/${{ github.repository }}
+      auto_pr_script:
+        description: Path to the automation script responsible for opening pull requests.
+        required: false
+        type: string
+        default: scripts/create-pr.sh
+      feature_prefix:
+        description: Branch prefix that should trigger the feature PR automation.
+        required: false
+        type: string
+        default: feature/
+      feature_target:
+        description: Base branch for feature pull requests.
+        required: false
+        type: string
+        default: develop
+      feature_title_prefix:
+        description: Title prefix applied to feature pull requests.
+        required: false
+        type: string
+        default: Feature
+      enable_auto_pr_feature:
+        description: Enables the feature auto PR job when the workflow is reused.
+        required: false
+        type: boolean
+        default: true
+      hotfix_prefix:
+        description: Branch prefix that should trigger the hotfix PR automation.
+        required: false
+        type: string
+        default: hotfix/
+      hotfix_target:
+        description: Base branch for hotfix pull requests.
+        required: false
+        type: string
+        default: main
+      hotfix_title_prefix:
+        description: Title prefix applied to hotfix pull requests.
+        required: false
+        type: string
+        default: Hotfix
+      enable_auto_pr_hotfix:
+        description: Enables the hotfix auto PR job when the workflow is reused.
+        required: false
+        type: boolean
+        default: true
+    secrets:
+      PR_AUTOMATION_TOKEN:
+        description: Optional personal access token used for automated pull requests.
+        required: false
+  push:
+    branches:
+      - main
+      - develop
+      - 'feature/**'
+      - 'hotfix/**'
+
+env:
+  PROJECT_DIR: ${{ (github.event_name == 'workflow_call' && inputs.project_directory) || 'kanban-core' }}
+  DOCKER_CONTEXT: ${{ (github.event_name == 'workflow_call' && inputs.docker_context) || 'kanban-core' }}
+  DOCKERFILE: ${{ (github.event_name == 'workflow_call' && inputs.dockerfile) || 'kanban-core/Dockerfile' }}
+  DOCKER_IMAGE: ${{ (github.event_name == 'workflow_call' && inputs.docker_image) || format('ghcr.io/{0}', github.repository) }}
+  AUTO_PR_SCRIPT: ${{ (github.event_name == 'workflow_call' && inputs.auto_pr_script) || 'scripts/create-pr.sh' }}
+  FEATURE_PREFIX: ${{ (github.event_name == 'workflow_call' && inputs.feature_prefix) || 'feature/' }}
+  FEATURE_TARGET: ${{ (github.event_name == 'workflow_call' && inputs.feature_target) || 'develop' }}
+  FEATURE_TITLE_PREFIX: ${{ (github.event_name == 'workflow_call' && inputs.feature_title_prefix) || 'Feature' }}
+  HOTFIX_PREFIX: ${{ (github.event_name == 'workflow_call' && inputs.hotfix_prefix) || 'hotfix/' }}
+  HOTFIX_TARGET: ${{ (github.event_name == 'workflow_call' && inputs.hotfix_target) || 'main' }}
+  HOTFIX_TITLE_PREFIX: ${{ (github.event_name == 'workflow_call' && inputs.hotfix_title_prefix) || 'Hotfix' }}
+
+permissions:
+  contents: read
+  packages: write
+  pull-requests: write
+
+jobs:
+  build-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./${{ env.PROJECT_DIR }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: 21
+          distribution: temurin
+          cache: maven
+
+      - name: Build and verify project
+        run: mvn -B verify
+
+  publish-image:
+    name: Publish Docker Image
+    needs: build-test
+    if: >-
+      ${{
+        (
+          github.event_name != 'workflow_call' ||
+          inputs.publish_image
+        ) && (
+          github.ref == 'refs/heads/main' ||
+          github.ref == 'refs/heads/develop'
+        )
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_IMAGE }}
+          tags: |
+            type=raw,value=release,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=snapshot,enable=${{ github.ref == 'refs/heads/develop' }}
+            type=sha
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ env.DOCKER_CONTEXT }}
+          file: ./${{ env.DOCKERFILE }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  auto-pr-feature:
+    name: Open PR to ${{ env.FEATURE_TARGET }}
+    needs: build-test
+    if: >-
+      ${{
+        (
+          github.event_name != 'workflow_call' ||
+          inputs.enable_auto_pr_feature
+        ) && startsWith(
+          github.ref,
+          format('refs/heads/{0}', env.FEATURE_PREFIX)
+        )
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Ensure pull request targeting ${{ env.FEATURE_TARGET }}
+        env:
+          DEFAULT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FALLBACK_TOKEN: ${{ secrets.PR_AUTOMATION_TOKEN }}
+          AUTO_PR_SCRIPT: ${{ env.AUTO_PR_SCRIPT }}
+          FEATURE_TARGET: ${{ env.FEATURE_TARGET }}
+          FEATURE_TITLE_PREFIX: ${{ env.FEATURE_TITLE_PREFIX }}
+        run: bash "$AUTO_PR_SCRIPT" "$FEATURE_TARGET" "$FEATURE_TITLE_PREFIX"
+
+  auto-pr-hotfix:
+    name: Open PR to ${{ env.HOTFIX_TARGET }}
+    needs: build-test
+    if: >-
+      ${{
+        (
+          github.event_name != 'workflow_call' ||
+          inputs.enable_auto_pr_hotfix
+        ) && startsWith(
+          github.ref,
+          format('refs/heads/{0}', env.HOTFIX_PREFIX)
+        )
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Ensure pull request targeting ${{ env.HOTFIX_TARGET }}
+        env:
+          DEFAULT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FALLBACK_TOKEN: ${{ secrets.PR_AUTOMATION_TOKEN }}
+          AUTO_PR_SCRIPT: ${{ env.AUTO_PR_SCRIPT }}
+          HOTFIX_TARGET: ${{ env.HOTFIX_TARGET }}
+          HOTFIX_TITLE_PREFIX: ${{ env.HOTFIX_TITLE_PREFIX }}
+        run: bash "$AUTO_PR_SCRIPT" "$HOTFIX_TARGET" "$HOTFIX_TITLE_PREFIX"
