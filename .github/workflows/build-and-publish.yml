@@ -38,11 +38,11 @@ on:
         required: false
 
 env:
-  PROJECT_DIR: ${{ (github.event_name == 'workflow_call' && inputs.project_directory) || vars.PROJECT_DIRECTORY }}
-  DOCKER_CONTEXT: ${{ (github.event_name == 'workflow_call' && inputs.docker_context) || vars.DOCKER_CONTEXT }}
-  DOCKERFILE: ${{ (github.event_name == 'workflow_call' && inputs.dockerfile) || vars.DOCKERFILE }}
-  DOCKER_IMAGE: ${{ (github.event_name == 'workflow_call' && inputs.docker_image) || vars.DOCKER_IMAGE }}
-  DOCKER_REGISTRY: ${{ (github.event_name == 'workflow_call' && inputs.docker_registry) || vars.DOCKER_REGISTRY || 'ghcr.io' }}
+  PROJECT_DIR: ${{ (inputs.project_directory != '' && inputs.project_directory) || vars.PROJECT_DIRECTORY }}
+  DOCKER_CONTEXT: ${{ (inputs.docker_context != '' && inputs.docker_context) || vars.DOCKER_CONTEXT }}
+  DOCKERFILE: ${{ (inputs.dockerfile != '' && inputs.dockerfile) || vars.DOCKERFILE }}
+  DOCKER_IMAGE: ${{ (inputs.docker_image != '' && inputs.docker_image) || vars.DOCKER_IMAGE }}
+  DOCKER_REGISTRY: ${{ (inputs.docker_registry != '' && inputs.docker_registry) || vars.DOCKER_REGISTRY || 'ghcr.io' }}
 
 permissions:
   contents: read
