@@ -60,7 +60,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./${{ env.PROJECT_DIR }}
+        working-directory: ${{ env.PROJECT_DIR }}
     steps:
       - name: Validate configuration
         env:
