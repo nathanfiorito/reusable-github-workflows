@@ -57,8 +57,9 @@ jobs:
         working-directory: ${{ env.PROJECT_DIR }}
     steps:
       - name: Validate configuration
-        working-directory: .
-        run: bash scripts/check-required-env.sh PROJECT_DIR DOCKER_CONTEXT DOCKERFILE DOCKER_IMAGE
+        uses: nathanfiorito/reusable-github-workflows/.github/actions/check-required-env@main
+        with:
+          vars: PROJECT_DIR DOCKER_CONTEXT DOCKERFILE DOCKER_IMAGE
 
       - name: Checkout sources
         uses: actions/checkout@v4

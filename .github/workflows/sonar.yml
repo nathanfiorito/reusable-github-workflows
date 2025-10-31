@@ -63,11 +63,12 @@ jobs:
         working-directory: ${{ env.PROJECT_DIR }}
     steps:
       - name: Validate configuration
-        working-directory: .
+        uses: nathanfiorito/reusable-github-workflows/.github/actions/check-required-env@main
         env:
           PROJECT_DIR: ${{ env.PROJECT_DIR }}
           SONAR_PROJECT_KEY: ${{ env.SONAR_PROJECT_KEY }}
-        run: bash scripts/check-required-env.sh PROJECT_DIR SONAR_PROJECT_KEY
+        with:
+          vars: PROJECT_DIR SONAR_PROJECT_KEY
 
       - uses: actions/checkout@v4
         with:
