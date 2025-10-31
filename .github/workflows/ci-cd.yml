@@ -168,7 +168,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
   auto-pr-feature:
-    name: Open PR to ${{ env.FEATURE_TARGET }}
+    name: Open PR to ${{ (github.event_name == 'workflow_call' && inputs.feature_target) || 'develop' }}
     needs: build-test
     if: >-
       ${{
@@ -177,7 +177,10 @@ jobs:
           inputs.enable_auto_pr_feature
         ) && startsWith(
           github.ref,
-          format('refs/heads/{0}', env.FEATURE_PREFIX)
+          format(
+            'refs/heads/{0}',
+            (github.event_name == 'workflow_call' && inputs.feature_prefix) || 'feature/'
+          )
         )
       }}
     runs-on: ubuntu-latest
@@ -185,7 +188,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Ensure pull request targeting ${{ env.FEATURE_TARGET }}
+      - name: Ensure pull request targeting ${{ (github.event_name == 'workflow_call' && inputs.feature_target) || 'develop' }}
         env:
           DEFAULT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FALLBACK_TOKEN: ${{ secrets.PR_AUTOMATION_TOKEN }}
@@ -195,7 +198,7 @@ jobs:
         run: bash "$AUTO_PR_SCRIPT" "$FEATURE_TARGET" "$FEATURE_TITLE_PREFIX"
 
   auto-pr-hotfix:
-    name: Open PR to ${{ env.HOTFIX_TARGET }}
+    name: Open PR to ${{ (github.event_name == 'workflow_call' && inputs.hotfix_target) || 'main' }}
     needs: build-test
     if: >-
       ${{
@@ -204,7 +207,10 @@ jobs:
           inputs.enable_auto_pr_hotfix
         ) && startsWith(
           github.ref,
-          format('refs/heads/{0}', env.HOTFIX_PREFIX)
+          format(
+            'refs/heads/{0}',
+            (github.event_name == 'workflow_call' && inputs.hotfix_prefix) || 'hotfix/'
+          )
         )
       }}
     runs-on: ubuntu-latest
@@ -212,7 +218,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Ensure pull request targeting ${{ env.HOTFIX_TARGET }}
+      - name: Ensure pull request targeting ${{ (github.event_name == 'workflow_call' && inputs.hotfix_target) || 'main' }}
         env:
           DEFAULT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FALLBACK_TOKEN: ${{ secrets.PR_AUTOMATION_TOKEN }}
