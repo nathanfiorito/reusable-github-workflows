@@ -121,50 +121,20 @@ jobs:
         run: |
           set -euo pipefail
 
-          candidates=(
-            "reusable-workflows/scripts/python/ai-code-review.py"
-            ".reusable-workflows/scripts/python/ai-code-review.py"
-            "scripts/python/ai-code-review.py"
-          )
+          SCRIPT_ROOT="reusable-workflows"
+          REVIEWER_SCRIPT="${SCRIPT_ROOT}/scripts/python/ai-code-review.py"
 
-          script_path=""
-          for candidate in "${candidates[@]}"; do
-            if [ -f "$candidate" ]; then
-              script_path="$candidate"
-              break
-            fi
-          done
-
-          if [ -z "$script_path" ]; then
-            echo "ai-code-review.py not found in workspace; attempting to download from workflow repository..."
-            mkdir -p _ai_code_review_tmp
-
-            raw_ref="${WORKFLOW_REF_NAME:-${WORKFLOW_REF}}"
-            raw_url="https://raw.githubusercontent.com/${WORKFLOW_REPO}/${raw_ref}/scripts/python/ai-code-review.py"
-
-            declare -a curl_args
-            curl_args=(-fsSL)
-            if [ -n "${WORKFLOW_UTILS_TOKEN:-}" ]; then
-              curl_args+=(-H "Authorization: Bearer ${WORKFLOW_UTILS_TOKEN}")
-            elif [ -n "${GITHUB_TOKEN:-}" ]; then
-              curl_args+=(-H "Authorization: Bearer ${GITHUB_TOKEN}")
-            fi
-
-            if curl "${curl_args[@]}" "$raw_url" -o _ai_code_review_tmp/ai-code-review.py; then
-              script_path="_ai_code_review_tmp/ai-code-review.py"
-              echo "Downloaded reviewer script from $raw_url"
-            else
-              echo "::error::Could not locate or download ai-code-review.py."
-              echo "Checked paths: ${candidates[*]}"
-              echo "Attempted download URL: $raw_url"
-              echo "Workspace layout (depth 3):"
-              find . -maxdepth 3 -type f -name 'ai-code-review.py' || true
-              exit 1
-            fi
+          if [ ! -f "$REVIEWER_SCRIPT" ]; then
+            echo "::error::Reviewer script not found at ${REVIEWER_SCRIPT}."
+            echo "Make sure the 'Checkout workflow utilities' step has access to ${WORKFLOW_REPO}@${WORKFLOW_REF_NAME:-${WORKFLOW_REF}}."
+            echo "Tip: provide a token with read access via the WORKFLOW_UTILS_TOKEN secret when consuming this workflow from another repository."
+            echo "Workspace layout (depth 3):"
+            find . -maxdepth 3 -type f -name 'ai-code-review.py' || true
+            exit 1
           fi
 
-          echo "Using reviewer script at: $script_path"
-          python "$script_path"
+          echo "Using reviewer script at: $REVIEWER_SCRIPT"
+          python "$REVIEWER_SCRIPT"
 
       - name: Comment summary on PR
         uses: actions/github-script@v7
