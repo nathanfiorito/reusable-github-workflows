@@ -30,15 +30,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository under review
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Resolve review context
         id: review-context
         run: |
           set -euo pipefail
+
+          ls -la
 
           if [ "${EVENT_NAME}" = "pull_request" ]; then
             echo "pr-number=${PR_CONTEXT_NUMBER}" >> "$GITHUB_OUTPUT"
