@@ -13,7 +13,7 @@ from github import Github
 from openai import OpenAI
 
 # Configuration
-MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")  # or "gpt-4" for better quality
+MODEL = os.getenv("OPENAI_MODEL", "gpt-5-mini-2025-08-07")  # or "gpt-4" for better quality
 MAX_TOKENS = int(os.getenv("OPENAI_MAX_TOKENS", "2000"))
 TEMPERATURE = float(os.getenv("OPENAI_TEMPERATURE", "0.3"))
 
@@ -94,35 +94,41 @@ class CodeReviewer:
 
     def create_review_prompt(self, files_context: str) -> str:
         """Create the prompt for OpenAI."""
-        return f"""You are an expert code reviewer for a Java Spring Boot application with:
-- Java 21
-- Spring Boot 3
-- PostgreSQL with Row Level Security
-- Multi-tenant architecture (Hexagonal)
-- JWT authentication
-- Flyway migrations
-
-Review the following code changes and provide constructive feedback.
+        return f"""You are an expert software engineer and code reviewer with deep experience across multiple programming languages, frameworks, and architectural styles. Review the following code changes and provide constructive, context-aware feedback.
 
 **Focus areas:**
-1. **Security**: Authentication, authorization, SQL injection, XSS, secrets exposure
-2. **Multi-tenant isolation**: Ensure tenant_id is properly handled
-3. **Code quality**: SOLID principles, clean code, naming conventions
-4. **Performance**: N+1 queries, inefficient algorithms, missing indexes
-5. **Best practices**: Spring Boot conventions, JPA best practices
-6. **Testing**: Missing test coverage, edge cases
-7. **Documentation**: Missing javadocs, unclear logic
+1. **Correctness**: Logic errors, data handling, edge cases, cross-file implications
+2. **Security**: Authentication, authorization, data exposure, injection risks, secret handling
+3. **Maintainability**: Readability, consistency, abstractions, code smells, dead code
+4. **Performance**: Inefficient algorithms, unnecessary complexity, resource usage, scalability
+5. **Testing**: Missing or insufficient automated tests, edge case coverage, reliability
+6. **Documentation & DX**: Comments, README/docs updates, configuration clarity, migration steps
+7. **Dependencies & Tooling**: Versioning impacts, build scripts, CI/CD implications
 
 **Changed Files:**
 {files_context}
 
 **Instructions:**
-- Provide specific, actionable feedback
-- Highlight security concerns with 🔴
-- Suggest improvements with 💡
-- Acknowledge good practices with ✅
-- Be concise but thorough
-- Focus on critical issues first
+- Provide specific, actionable feedback tailored to the language or framework in each file
+- Highlight critical or high-risk issues with 🔴
+- Suggest improvements or alternatives with 💡
+- Recognize strong patterns or best practices with ✅
+- Be concise but thorough; prioritize the most impactful findings
+- When you flag an issue, follow this structure and always include concrete code snippets:
+  ---
+  # <file or class name>
+  ---
+  ## <short imperative summary of the change needed>
+  Flagged snippet:
+  ```<language>
+  <current/problematic code>
+  ```
+  Suggested fix:
+  ```<language>
+  <proposed fix>
+  ```
+- Use the appropriate language identifier in fenced code blocks; if unknown, omit the identifier but still provide the snippet
+- If the code snippet is unavailable, describe the snippet needed and provide a plausible fix in code form
 
 Provide your review in Markdown format.
 """
@@ -137,7 +143,7 @@ Provide your review in Markdown format.
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are an expert code reviewer specializing in Java Spring Boot applications, security, and clean architecture."
+                        "content": "You are an expert code reviewer proficient across multiple programming languages, frameworks, and architectures, with deep knowledge of security, reliability, and maintainability best practices. Present each finding using the mandated structure that includes the file or class name, a concise summary, the problematic snippet, and a suggested fix, all formatted with Markdown code fences."
                     },
                     {
                         "role": "user",
@@ -175,11 +181,12 @@ Provide your review in Markdown format.
 
 This automated code review was generated using OpenAI's {MODEL} model.
 The review focuses on:
-- Security vulnerabilities
-- Multi-tenant isolation
-- Code quality and best practices
-- Performance considerations
-- Testing coverage
+- Security vulnerabilities and secret handling
+- Correctness and reliability
+- Code quality and maintainability best practices
+- Performance and scalability considerations
+- Testing coverage and validation
+- Documentation and developer experience impacts
 
 **Note:** This is an automated review. Please use your judgment and verify suggestions before applying them.
 
