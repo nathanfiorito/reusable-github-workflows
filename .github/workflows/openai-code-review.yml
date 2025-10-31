@@ -110,8 +110,15 @@ jobs:
           SCRIPT_ROOT="$(mktemp -d ai-reviewer-XXXXXX)"
           REVIEWER_SCRIPT="${SCRIPT_ROOT}/scripts/python/ai-code-review.py"
 
-          git clone --depth 1 --branch "${WORKFLOW_REF_NAME:-${WORKFLOW_REF}}" \
-            "https://github.com/${WORKFLOW_REPO}.git" "$SCRIPT_ROOT"
+          repo_url="https://github.com/${WORKFLOW_REPO}.git"
+          if [ -n "${GITHUB_TOKEN:-}" ]; then
+            echo "::add-mask::${GITHUB_TOKEN}"
+            repo_url="https://x-access-token:${GITHUB_TOKEN}@github.com/${WORKFLOW_REPO}.git"
+          fi
+
+          git clone --no-checkout --filter=blob:none "$repo_url" "$SCRIPT_ROOT"
+          git -C "$SCRIPT_ROOT" fetch --depth 1 origin "${WORKFLOW_REF}"
+          git -C "$SCRIPT_ROOT" checkout --detach FETCH_HEAD
 
           if [ ! -f "$REVIEWER_SCRIPT" ]; then
             echo "::error::Reviewer script not found at ${REVIEWER_SCRIPT}."
