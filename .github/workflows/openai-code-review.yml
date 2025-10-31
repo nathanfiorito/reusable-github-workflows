@@ -82,53 +82,32 @@ jobs:
             ref_name="${ref_name#refs/tags/}"
           fi
           echo "ref-name=${ref_name}" >> "$GITHUB_OUTPUT"
+          echo "sha=${WORKFLOW_SHA}" >> "$GITHUB_OUTPUT"
         env:
           WORKFLOW_REF: ${{ github.workflow_ref }}
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install openai requests PyGithub
-
-      - name: Run AI Code Review
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          GITHUB_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ steps.review-context.outputs.pr-number }}
-          REPO_NAME: ${{ steps.review-context.outputs.repo-name }}
-          WORKFLOW_REPO: ${{ steps.workflow-source.outputs.repo }}
-          WORKFLOW_REF: ${{ steps.workflow-source.outputs.ref }}
-          WORKFLOW_REF_NAME: ${{ steps.workflow-source.outputs.ref-name }}
+      - name: Resolve action source
+        id: action-source
         run: |
           set -euo pipefail
 
-          SCRIPT_ROOT="$(mktemp -d ai-reviewer-XXXXXX)"
-          REVIEWER_SCRIPT="${SCRIPT_ROOT}/scripts/python/ai-code-review.py"
-
-          repo_url="https://github.com/${WORKFLOW_REPO}.git"
-          if [ -n "${GITHUB_TOKEN:-}" ]; then
-            echo "::add-mask::${GITHUB_TOKEN}"
-            repo_url="https://x-access-token:${GITHUB_TOKEN}@github.com/${WORKFLOW_REPO}.git"
+          if [ -d ".github/actions/ai-code-review" ]; then
+            echo "uses_target=./.github/actions/ai-code-review" >> "$GITHUB_OUTPUT"
+          else
+            echo "uses_target=${WORKFLOW_REPO}/.github/actions/ai-code-review@${WORKFLOW_SHA}" >> "$GITHUB_OUTPUT"
           fi
+        env:
+          WORKFLOW_REPO: ${{ steps.workflow-source.outputs.repo }}
+          WORKFLOW_SHA: ${{ steps.workflow-source.outputs.sha }}
 
-          git clone --no-checkout --filter=blob:none "$repo_url" "$SCRIPT_ROOT"
-          git -C "$SCRIPT_ROOT" fetch --depth 1 origin "${WORKFLOW_REF}"
-          git -C "$SCRIPT_ROOT" checkout --detach FETCH_HEAD
-
-          if [ ! -f "$REVIEWER_SCRIPT" ]; then
-            echo "::error::Reviewer script not found at ${REVIEWER_SCRIPT}."
-            echo "Workspace layout (depth 3):"
-            find "$SCRIPT_ROOT" -maxdepth 3 -type f -name 'ai-code-review.py' || true
-            exit 1
-          fi
-
-          echo "Using reviewer script at: $REVIEWER_SCRIPT"
-          python "$REVIEWER_SCRIPT"
+      - name: Run AI Code Review
+        uses: ${{ steps.action-source.outputs.uses_target }}
+        with:
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          github_token: ${{ github.token }}
+          pr_number: ${{ steps.review-context.outputs.pr-number }}
+          repo_name: ${{ steps.review-context.outputs.repo-name }}
 
       - name: Comment summary on PR
         uses: actions/github-script@v7

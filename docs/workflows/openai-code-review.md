@@ -19,13 +19,12 @@ jobs:
       # repo_name: my-org/outro-repo # opcional quando a revisão ocorre em outro repositório
     secrets:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 - Substitua `@main` por uma tag ou SHA fixo em produção.
 - `pr_number` é obrigatório na reutilização via `workflow_call` (o workflow resolve sozinho quando disparado diretamente por `pull_request`).
 - Informe `repo_name` apenas se o PR pertencer a outro repositório (formato `owner/nome`).
-- O `GITHUB_TOKEN` pode ser herdado com `secrets: inherit`, desde que o repositório/chamada possua permissão para comentar no PR.
+- O `GITHUB_TOKEN` padrão fornecido pelo GitHub Actions já é utilizado automaticamente; basta garantir que o workflow tenha permissões `contents: read` e `pull-requests: write`.
 
 ## Inputs
 
@@ -39,7 +38,6 @@ jobs:
 | Nome | Obrigatório | Uso |
 | --- | --- | --- |
 | `OPENAI_API_KEY` | Sim | Chave da OpenAI com acesso ao modelo escolhido. |
-| `GITHUB_TOKEN` | Sim | Utilizado para ler arquivos do PR e publicar comentários. Pode ser herdado (`secrets: inherit`). |
 
 ## Variáveis de ambiente opcionais
 
@@ -63,4 +61,4 @@ Defina-as via `env` no job que consome o workflow, quando quiser ajustar o compo
 
 - O script ignora arquivos removidos e só analisa extensões suportadas (`.java`, `.yaml`, `.xml`, `.sql`, `.properties`, `.json`, `.sh`, `.py`, etc.). Ajuste diretamente no script se precisar ampliar a cobertura.
 - Certifique-se de que o token utilizado tenha permissão de leitura no repositório e de comentar no PR (escopos `contents:read`, `pull-requests:write`).
-- O workflow baixa a mesma versão deste repositório que foi referenciada na chamada (`uses: ...@ref`), garantindo que o script Python está alinhado com a versão do workflow utilizada.
+- O workflow invoca uma _composite action_ interna que sempre executa a versão do script correspondente ao commit referenciado em `uses: …@ref`, tornando-o funcional mesmo quando chamado a partir de outros repositórios.
