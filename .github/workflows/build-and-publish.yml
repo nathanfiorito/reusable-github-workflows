@@ -39,9 +39,9 @@ on:
 
 env:
   PROJECT_DIR: ${{ inputs.project_directory }}
-  DOCKER_CONTEXT: ${{ inputs.docker_context }}
+  DOCKER_BUILD_CONTEXT: ${{ inputs.docker_context }}
   DOCKERFILE: ${{ inputs.dockerfile }}
-  DOCKER_IMAGE: ${{ inputs.docker_image}}
+  DOCKER_IMAGE: ${{ inputs.docker_image }}
   DOCKER_REGISTRY: ${{ inputs.docker_registry || 'ghcr.io' }}
 
 permissions:
@@ -59,7 +59,7 @@ jobs:
       - name: Validate configuration
         uses: nathanfiorito/reusable-github-workflows/.github/actions/check-required-env@main
         with:
-          vars: PROJECT_DIR DOCKER_CONTEXT DOCKERFILE DOCKER_IMAGE
+          vars: PROJECT_DIR DOCKER_BUILD_CONTEXT DOCKERFILE DOCKER_IMAGE
 
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -114,7 +114,10 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./${{ env.DOCKER_CONTEXT }}
+          builder: default
+          build-contexts: |
+            default=.
+          context: ./${{ env.DOCKER_BUILD_CONTEXT }}
           file: ./${{ env.DOCKERFILE }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
