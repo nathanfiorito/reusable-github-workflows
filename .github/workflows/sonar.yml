@@ -1,0 +1,121 @@
+name: SonarQube
+
+on:
+  workflow_call:
+    inputs:
+      project_directory:
+        description: Relative path to the project root that should be analyzed.
+        required: true
+        type: string
+      sonar_project_key:
+        description: Project key registered in SonarQube/SonarCloud.
+        required: true
+        type: string
+      java_version:
+        description: JDK version used during compilation and analysis.
+        required: false
+        type: string
+        default: '21'
+      java_distribution:
+        description: JDK distribution (temurin, zulu, etc.).
+        required: false
+        type: string
+        default: 'temurin'
+      maven_goals:
+        description: Maven goals to run before the sonar analysis.
+        required: false
+        type: string
+        default: 'verify'
+      sonar_organization:
+        description: SonarCloud organization key (leave empty for self-hosted servers).
+        required: false
+        type: string
+      sonar_host_url:
+        description: SonarQube host URL (leave empty for SonarCloud default).
+        required: false
+        type: string
+    secrets:
+      SONAR_TOKEN:
+        description: Token with permissions to run the SonarQube analysis.
+        required: true
+      SONAR_HOST_URL:
+        description: Override host URL via secret when not provided as input.
+        required: false
+      SONAR_ORGANIZATION:
+        description: Override organization key via secret when not provided as input.
+        required: false
+
+env:
+  PROJECT_DIR: ${{ (github.event_name == 'workflow_call' && inputs.project_directory) || vars.SONAR_PROJECT_DIRECTORY }}
+  SONAR_PROJECT_KEY: ${{ (github.event_name == 'workflow_call' && inputs.sonar_project_key) || vars.SONAR_PROJECT_KEY }}
+  JAVA_VERSION: ${{ (github.event_name == 'workflow_call' && inputs.java_version) || vars.SONAR_JAVA_VERSION || '21' }}
+  JAVA_DISTRIBUTION: ${{ (github.event_name == 'workflow_call' && inputs.java_distribution) || vars.SONAR_JAVA_DISTRIBUTION || 'temurin' }}
+  MAVEN_GOALS: ${{ (github.event_name == 'workflow_call' && inputs.maven_goals) || vars.SONAR_MAVEN_GOALS || 'verify' }}
+  SONAR_HOST_URL: ${{ (github.event_name == 'workflow_call' && inputs.sonar_host_url) || vars.SONAR_HOST_URL || secrets.SONAR_HOST_URL }}
+  SONAR_ORGANIZATION: ${{ (github.event_name == 'workflow_call' && inputs.sonar_organization) || vars.SONAR_ORGANIZATION || secrets.SONAR_ORGANIZATION }}
+
+jobs:
+  build:
+    name: Build and analyze
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./${{ env.PROJECT_DIR }}
+    steps:
+      - name: Validate configuration
+        env:
+          PROJECT_DIR: ${{ env.PROJECT_DIR }}
+          SONAR_PROJECT_KEY: ${{ env.SONAR_PROJECT_KEY }}
+        run: |
+          missing=0
+          for var in PROJECT_DIR SONAR_PROJECT_KEY; do
+            value="${!var}"
+            if [ -z "${value}" ]; then
+              echo "Required configuration '$var' not provided. Set workflow input or repository variable." >&2
+              missing=1
+            fi
+          done
+          if [ "${missing}" -ne 0 ]; then
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      - name: Cache SonarQube packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles(format('{0}/**/pom.xml', env.PROJECT_DIR)) }}
+          restore-keys: ${{ runner.os }}-m2
+
+      - name: Build and analyze
+        shell: bash
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }}
+          SONAR_ORGANIZATION: ${{ env.SONAR_ORGANIZATION }}
+        run: |
+          set -eo pipefail
+          command=(mvn -B ${{ env.MAVEN_GOALS }} org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }})
+          if [ -n "${SONAR_HOST_URL}" ]; then
+            command+=(-Dsonar.host.url="${SONAR_HOST_URL}")
+          fi
+          if [ -n "${SONAR_ORGANIZATION}" ]; then
+            command+=(-Dsonar.organization="${SONAR_ORGANIZATION}")
+          fi
+          "${command[@]}"
