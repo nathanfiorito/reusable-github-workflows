@@ -64,45 +64,8 @@ jobs:
           PR_NUMBER_INPUT: ${{ inputs.pr_number }}
           REPO_NAME_INPUT: ${{ inputs.repo_name }}
 
-      - name: Resolve workflow source
-        id: workflow-source
-        run: |
-          set -euo pipefail
-
-          ref="${WORKFLOW_REF#*@}"
-          path_without_ref="${WORKFLOW_REF%@*}"
-          repo="${path_without_ref%%/.github/workflows/*}"
-
-          echo "ref=${ref}" >> "$GITHUB_OUTPUT"
-          echo "repo=${repo}" >> "$GITHUB_OUTPUT"
-          ref_name="$ref"
-          if [[ "$ref_name" == refs/heads/* ]]; then
-            ref_name="${ref_name#refs/heads/}"
-          elif [[ "$ref_name" == refs/tags/* ]]; then
-            ref_name="${ref_name#refs/tags/}"
-          fi
-          echo "ref-name=${ref_name}" >> "$GITHUB_OUTPUT"
-          echo "sha=${WORKFLOW_SHA}" >> "$GITHUB_OUTPUT"
-        env:
-          WORKFLOW_REF: ${{ github.workflow_ref }}
-          WORKFLOW_SHA: ${{ github.workflow_sha }}
-
-      - name: Resolve action source
-        id: action-source
-        run: |
-          set -euo pipefail
-
-          if [ -d ".github/actions/ai-code-review" ]; then
-            echo "uses_target=./.github/actions/ai-code-review" >> "$GITHUB_OUTPUT"
-          else
-            echo "uses_target=${WORKFLOW_REPO}/.github/actions/ai-code-review@${WORKFLOW_SHA}" >> "$GITHUB_OUTPUT"
-          fi
-        env:
-          WORKFLOW_REPO: ${{ steps.workflow-source.outputs.repo }}
-          WORKFLOW_SHA: ${{ steps.workflow-source.outputs.sha }}
-
       - name: Run AI Code Review
-        uses: ${{ steps.action-source.outputs.uses_target }}
+        uses: ./.github/actions/ai-code-review
         with:
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           github_token: ${{ github.token }}
