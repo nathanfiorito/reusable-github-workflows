@@ -1,0 +1,139 @@
+name: AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main, develop]
+  workflow_call:
+    inputs:
+      pr_number:
+        description: Pull request number to review when the workflow is reused.
+        required: true
+        type: string
+      repo_name:
+        description: Optional repository (owner/name) override for the PR.
+        required: false
+        type: string
+    secrets:
+      OPENAI_API_KEY:
+        required: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  ai-code-review:
+    name: OpenAI Code Review
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository under review
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve review context
+        id: review-context
+        run: |
+          set -euo pipefail
+
+          if [ "${EVENT_NAME}" = "pull_request" ]; then
+            echo "pr-number=${PR_CONTEXT_NUMBER}" >> "$GITHUB_OUTPUT"
+            echo "repo-name=${DEFAULT_REPO}" >> "$GITHUB_OUTPUT"
+          else
+            if [ -z "${PR_NUMBER_INPUT}" ]; then
+              echo "::error::'pr_number' input is required when reusing this workflow."
+              exit 1
+            fi
+
+            echo "pr-number=${PR_NUMBER_INPUT}" >> "$GITHUB_OUTPUT"
+
+            if [ -n "${REPO_NAME_INPUT}" ]; then
+              echo "repo-name=${REPO_NAME_INPUT}" >> "$GITHUB_OUTPUT"
+            else
+              echo "repo-name=${DEFAULT_REPO}" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_CONTEXT_NUMBER: ${{ github.event_name == 'pull_request' && github.event.pull_request.number || '' }}
+          DEFAULT_REPO: ${{ github.repository }}
+          PR_NUMBER_INPUT: ${{ inputs.pr_number }}
+          REPO_NAME_INPUT: ${{ inputs.repo_name }}
+
+      - name: Resolve workflow source
+        id: workflow-source
+        run: |
+          set -euo pipefail
+
+          ref="${WORKFLOW_REF#*@}"
+          path_without_ref="${WORKFLOW_REF%@*}"
+          repo="${path_without_ref%%/.github/workflows/*}"
+
+          echo "ref=${ref}" >> "$GITHUB_OUTPUT"
+          echo "repo=${repo}" >> "$GITHUB_OUTPUT"
+        env:
+          WORKFLOW_REF: ${{ github.workflow_ref }}
+
+      - name: Checkout workflow utilities
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.workflow-source.outputs.repo }}
+          ref: ${{ steps.workflow-source.outputs.ref }}
+          path: ./.reusable-workflows
+          fetch-depth: 1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install openai requests PyGithub
+
+      - name: Run AI Code Review
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.review-context.outputs.pr-number }}
+          REPO_NAME: ${{ steps.review-context.outputs.repo-name }}
+        run: |
+          python ./.reusable-workflows/scripts/python/ai-code-review.py
+
+      - name: Comment summary on PR
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const summaryPath = 'review-summary.md';
+
+            if (fs.existsSync(summaryPath)) {
+              const summary = fs.readFileSync(summaryPath, 'utf8').trim();
+              if (summary.length > 0) {
+                const [owner, repo] = '${{ steps.review-context.outputs.repo-name }}'.split('/');
+                const issueNumber = Number('${{ steps.review-context.outputs.pr-number }}');
+
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: issueNumber,
+                  body: summary
+                });
+              }
+            }
+
+      - name: Upload review results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-review-results
+          path: |
+            review-summary.md
+            review-details.json
+          if-no-files-found: ignore
+          retention-days: 30
