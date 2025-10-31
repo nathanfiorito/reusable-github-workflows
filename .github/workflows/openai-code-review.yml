@@ -116,8 +116,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          SCRIPT_ROOT="reusable-workflows"
-          REVIEWER_SCRIPT="${SCRIPT_ROOT}/scripts/python/ai-code-review.py"
+          REVIEWER_SCRIPT="scripts/python/ai-code-review.py"
 
           if [ ! -f "$REVIEWER_SCRIPT" ]; then
             echo "::error::Reviewer script not found at ${REVIEWER_SCRIPT}."
