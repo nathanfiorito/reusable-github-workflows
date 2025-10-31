@@ -51,7 +51,7 @@ env:
   JAVA_VERSION: ${{ inputs.java_version || '21' }}
   JAVA_DISTRIBUTION: ${{ inputs.java_distribution || 'temurin' }}
   MAVEN_GOALS: ${{ inputs.maven_goals || 'verify' }}
-  SONAR_HOST_URL: ${{ inputs.sonar_host_url || secrets.SONAR_HOST_URL || 'https://sonarcloud.io' }}
+  SONAR_HOST_URL: ${{ inputs.sonar_host_url || 'https://sonarcloud.io' }}
   SONAR_ORGANIZATION: ${{ inputs.sonar_organization }}
 
 jobs:
