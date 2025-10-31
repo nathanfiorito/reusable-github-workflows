@@ -67,18 +67,7 @@ jobs:
         env:
           PROJECT_DIR: ${{ env.PROJECT_DIR }}
           SONAR_PROJECT_KEY: ${{ env.SONAR_PROJECT_KEY }}
-        run: |
-          missing=0
-          for var in PROJECT_DIR SONAR_PROJECT_KEY; do
-            value="${!var}"
-            if [ -z "${value}" ]; then
-              echo "Required configuration '$var' not provided. Set workflow input or repository variable." >&2
-              missing=1
-            fi
-          done
-          if [ "${missing}" -ne 0 ]; then
-            exit 1
-          fi
+        run: bash scripts/check-required-env.sh PROJECT_DIR SONAR_PROJECT_KEY
 
       - uses: actions/checkout@v4
         with:
