@@ -85,14 +85,6 @@ jobs:
         env:
           WORKFLOW_REF: ${{ github.workflow_ref }}
 
-      - name: Checkout workflow utilities
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ steps.workflow-source.outputs.repo }}
-          ref: ${{ steps.workflow-source.outputs.ref }}
-          path: reusable-workflows
-          fetch-depth: 1
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -115,13 +107,16 @@ jobs:
         run: |
           set -euo pipefail
 
-          SCRIPT_ROOT="reusable-workflows"
+          SCRIPT_ROOT="$(mktemp -d ai-reviewer-XXXXXX)"
           REVIEWER_SCRIPT="${SCRIPT_ROOT}/scripts/python/ai-code-review.py"
+
+          git clone --depth 1 --branch "${WORKFLOW_REF_NAME:-${WORKFLOW_REF}}" \
+            "https://github.com/${WORKFLOW_REPO}.git" "$SCRIPT_ROOT"
 
           if [ ! -f "$REVIEWER_SCRIPT" ]; then
             echo "::error::Reviewer script not found at ${REVIEWER_SCRIPT}."
             echo "Workspace layout (depth 3):"
-            find . -maxdepth 3 -type f -name 'ai-code-review.py' || true
+            find "$SCRIPT_ROOT" -maxdepth 3 -type f -name 'ai-code-review.py' || true
             exit 1
           fi
 
