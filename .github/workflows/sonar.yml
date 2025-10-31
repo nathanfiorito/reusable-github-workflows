@@ -46,13 +46,13 @@ on:
         required: false
 
 env:
-  PROJECT_DIR: ${{ (github.event_name == 'workflow_call' && inputs.project_directory) || vars.SONAR_PROJECT_DIRECTORY }}
-  SONAR_PROJECT_KEY: ${{ (github.event_name == 'workflow_call' && inputs.sonar_project_key) || vars.SONAR_PROJECT_KEY }}
-  JAVA_VERSION: ${{ (github.event_name == 'workflow_call' && inputs.java_version) || vars.SONAR_JAVA_VERSION || '21' }}
-  JAVA_DISTRIBUTION: ${{ (github.event_name == 'workflow_call' && inputs.java_distribution) || vars.SONAR_JAVA_DISTRIBUTION || 'temurin' }}
-  MAVEN_GOALS: ${{ (github.event_name == 'workflow_call' && inputs.maven_goals) || vars.SONAR_MAVEN_GOALS || 'verify' }}
-  SONAR_HOST_URL: ${{ (github.event_name == 'workflow_call' && inputs.sonar_host_url) || vars.SONAR_HOST_URL || secrets.SONAR_HOST_URL }}
-  SONAR_ORGANIZATION: ${{ (github.event_name == 'workflow_call' && inputs.sonar_organization) || vars.SONAR_ORGANIZATION || secrets.SONAR_ORGANIZATION }}
+  PROJECT_DIR: ${{ inputs.project_directory }}
+  SONAR_PROJECT_KEY: ${{ inputs.sonar_project_key  }}
+  JAVA_VERSION: ${{ inputs.java_version || '21' }}
+  JAVA_DISTRIBUTION: ${{ inputs.java_distribution || 'temurin' }}
+  MAVEN_GOALS: ${{ inputs.maven_goals || 'verify' }}
+  SONAR_HOST_URL: ${{ inputs.sonar_host_url || secrets.SONAR_HOST_URL }}
+  SONAR_ORGANIZATION: ${{ inputs.sonar_organization }}
 
 jobs:
   build:
