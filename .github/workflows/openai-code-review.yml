@@ -85,6 +85,14 @@ jobs:
         env:
           WORKFLOW_REF: ${{ github.workflow_ref }}
 
+      - name: Checkout workflow utilities
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.workflow-source.outputs.repo }}
+          ref: ${{ steps.workflow-source.outputs.ref }}
+          path: reusable-workflows
+          fetch-depth: 1
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -98,36 +106,32 @@ jobs:
       - name: Run AI Code Review
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ steps.review-context.outputs.pr-number }}
           REPO_NAME: ${{ steps.review-context.outputs.repo-name }}
           WORKFLOW_REPO: ${{ steps.workflow-source.outputs.repo }}
           WORKFLOW_REF: ${{ steps.workflow-source.outputs.ref }}
           WORKFLOW_REF_NAME: ${{ steps.workflow-source.outputs.ref-name }}
-          SCRIPT_PATH: scripts/python/ai-code-review.py
         run: |
           set -euo pipefail
 
-          echo "Current directory: $(pwd)"
-          echo "Files in current directory:" 
-          ls -la
+          SCRIPT_ROOT="reusable-workflows"
+          REVIEWER_SCRIPT="${SCRIPT_ROOT}/scripts/python/ai-code-review.py"
 
-          if [ ! -f "$SCRIPT_PATH" ]; then
-            echo "::error::Reviewer script not found at ${SCRIPT_PATH}."
-            echo "Make sure the 'Checkout workflow utilities' step has access to ${WORKFLOW_REPO}@${WORKFLOW_REF_NAME:-${WORKFLOW_REF}}."
-            echo "Tip: provide a token with read access via the GITHUB_TOKEN secret (for checkout) or REVIEW_BOT_TOKEN secret (for API calls) when consuming this workflow from another repository."
+          if [ ! -f "$REVIEWER_SCRIPT" ]; then
+            echo "::error::Reviewer script not found at ${REVIEWER_SCRIPT}."
             echo "Workspace layout (depth 3):"
             find . -maxdepth 3 -type f -name 'ai-code-review.py' || true
             exit 1
           fi
 
-          echo "Using reviewer script at: $SCRIPT_PATH"
-          python "$SCRIPT_PATH"
+          echo "Using reviewer script at: $REVIEWER_SCRIPT"
+          python "$REVIEWER_SCRIPT"
 
       - name: Comment summary on PR
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.REVIEW_BOT_TOKEN != '' && secrets.REVIEW_BOT_TOKEN || github.token }}
+          github-token: ${{ github.token }}
           script: |
             const fs = require('fs');
             const summaryPath = 'review-summary.md';
