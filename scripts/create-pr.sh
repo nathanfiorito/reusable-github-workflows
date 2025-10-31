@@ -21,7 +21,7 @@ if [ -z "${TOKEN}" ]; then
 fi
 
 if [ -z "${TOKEN}" ]; then
-  echo "Nenhum token disponível para criar pull request." >&2
+  echo "Nenhum token disponivel para criar pull request." >&2
   exit 1
 fi
 
@@ -41,11 +41,11 @@ existing=$(curl -sS \
 
 existing_url=$(echo "${existing}" | jq -r '.[0].html_url // empty')
 if [ -n "${existing_url}" ]; then
-  echo "Pull request já existe: ${existing_url}"
+  echo "Pull request ja existe: ${existing_url}"
   exit 0
 fi
 
-body_template=$'## 🤖 PR Automático\n\n- Branch de origem: `__HEAD__`\n- Branch de destino: `__BASE__`\n\nBuild e testes executados com sucesso via pipeline CI/CD.\n'
+body_template=$'## PR Automatico\n\n- Branch de origem: `__HEAD__`\n- Branch de destino: `__BASE__`\n\nBuild e testes executados com sucesso via pipeline CI/CD.\n'
 BODY="${body_template/__HEAD__/${HEAD_BRANCH}}"
 BODY="${BODY/__BASE__/${BASE_BRANCH}}"
 
@@ -75,7 +75,7 @@ if [ "${status}" -ge 200 ] && [ "${status}" -lt 300 ]; then
   trap - EXIT
   exit 0
 elif [ "${status}" -eq 422 ]; then
-  echo "Pull request não criado (possivelmente já existe). Resposta:"
+  echo "Pull request nao criado (possivelmente ja existe). Resposta:"
   cat "${response_file}"
   rm -f "${response_file}"
   trap - EXIT
