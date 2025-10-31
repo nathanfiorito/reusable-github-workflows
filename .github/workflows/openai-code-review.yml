@@ -95,12 +95,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install openai requests PyGithub
 
-      - name: Debugging
-        run: |
-          echo "Current directory: $(pwd)"
-          echo "Files in current directory:" 
-          ls -la
-
       - name: Run AI Code Review
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -113,6 +107,10 @@ jobs:
           SCRIPT_PATH: scripts/python/ai-code-review.py
         run: |
           set -euo pipefail
+
+          echo "Current directory: $(pwd)"
+          echo "Files in current directory:" 
+          ls -la
 
           if [ ! -f "$SCRIPT_PATH" ]; then
             echo "::error::Reviewer script not found at ${SCRIPT_PATH}."
