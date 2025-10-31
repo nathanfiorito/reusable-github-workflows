@@ -8,8 +8,9 @@ on:
     inputs:
       pr_number:
         description: Pull request number to review when the workflow is reused.
-        required: true
         type: string
+        default: ""
+        required: false
       repo_name:
         description: Optional repository (owner/name) override for the PR.
         required: false
@@ -17,6 +18,10 @@ on:
     secrets:
       OPENAI_API_KEY:
         required: true
+      GITHUB_TOKEN:
+        required: false
+      WORKFLOW_UTILS_TOKEN:
+        required: false
 
 permissions:
   contents: read
@@ -74,6 +79,13 @@ jobs:
 
           echo "ref=${ref}" >> "$GITHUB_OUTPUT"
           echo "repo=${repo}" >> "$GITHUB_OUTPUT"
+          ref_name="$ref"
+          if [[ "$ref_name" == refs/heads/* ]]; then
+            ref_name="${ref_name#refs/heads/}"
+          elif [[ "$ref_name" == refs/tags/* ]]; then
+            ref_name="${ref_name#refs/tags/}"
+          fi
+          echo "ref-name=${ref_name}" >> "$GITHUB_OUTPUT"
         env:
           WORKFLOW_REF: ${{ github.workflow_ref }}
 
@@ -84,6 +96,7 @@ jobs:
           ref: ${{ steps.workflow-source.outputs.ref }}
           path: reusable-workflows
           fetch-depth: 1
+          token: ${{ secrets.WORKFLOW_UTILS_TOKEN != '' && secrets.WORKFLOW_UTILS_TOKEN || secrets.GITHUB_TOKEN != '' && secrets.GITHUB_TOKEN || github.token }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -101,6 +114,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ steps.review-context.outputs.pr-number }}
           REPO_NAME: ${{ steps.review-context.outputs.repo-name }}
+          WORKFLOW_REPO: ${{ steps.workflow-source.outputs.repo }}
+          WORKFLOW_REF: ${{ steps.workflow-source.outputs.ref }}
+          WORKFLOW_REF_NAME: ${{ steps.workflow-source.outputs.ref-name }}
+          WORKFLOW_UTILS_TOKEN: ${{ secrets.WORKFLOW_UTILS_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -119,10 +136,31 @@ jobs:
           done
 
           if [ -z "$script_path" ]; then
-            echo "::error::Could not locate ai-code-review.py. Checked: ${candidates[*]}"
-            echo "Workspace layout:"
-            find . -maxdepth 3 -type f -name 'ai-code-review.py' || true
-            exit 1
+            echo "ai-code-review.py not found in workspace; attempting to download from workflow repository..."
+            mkdir -p _ai_code_review_tmp
+
+            raw_ref="${WORKFLOW_REF_NAME:-${WORKFLOW_REF}}"
+            raw_url="https://raw.githubusercontent.com/${WORKFLOW_REPO}/${raw_ref}/scripts/python/ai-code-review.py"
+
+            declare -a curl_args
+            curl_args=(-fsSL)
+            if [ -n "${WORKFLOW_UTILS_TOKEN:-}" ]; then
+              curl_args+=(-H "Authorization: Bearer ${WORKFLOW_UTILS_TOKEN}")
+            elif [ -n "${GITHUB_TOKEN:-}" ]; then
+              curl_args+=(-H "Authorization: Bearer ${GITHUB_TOKEN}")
+            fi
+
+            if curl "${curl_args[@]}" "$raw_url" -o _ai_code_review_tmp/ai-code-review.py; then
+              script_path="_ai_code_review_tmp/ai-code-review.py"
+              echo "Downloaded reviewer script from $raw_url"
+            else
+              echo "::error::Could not locate or download ai-code-review.py."
+              echo "Checked paths: ${candidates[*]}"
+              echo "Attempted download URL: $raw_url"
+              echo "Workspace layout (depth 3):"
+              find . -maxdepth 3 -type f -name 'ai-code-review.py' || true
+              exit 1
+            fi
           fi
 
           echo "Using reviewer script at: $script_path"
