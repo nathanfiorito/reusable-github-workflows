@@ -63,6 +63,7 @@ jobs:
         working-directory: ${{ env.PROJECT_DIR }}
     steps:
       - name: Validate configuration
+        working-directory: .
         env:
           PROJECT_DIR: ${{ env.PROJECT_DIR }}
           SONAR_PROJECT_KEY: ${{ env.SONAR_PROJECT_KEY }}
