@@ -102,7 +102,31 @@ jobs:
           PR_NUMBER: ${{ steps.review-context.outputs.pr-number }}
           REPO_NAME: ${{ steps.review-context.outputs.repo-name }}
         run: |
-          python reusable-workflows/scripts/python/ai-code-review.py
+          set -euo pipefail
+
+          candidates=(
+            "reusable-workflows/scripts/python/ai-code-review.py"
+            ".reusable-workflows/scripts/python/ai-code-review.py"
+            "scripts/python/ai-code-review.py"
+          )
+
+          script_path=""
+          for candidate in "${candidates[@]}"; do
+            if [ -f "$candidate" ]; then
+              script_path="$candidate"
+              break
+            fi
+          done
+
+          if [ -z "$script_path" ]; then
+            echo "::error::Could not locate ai-code-review.py. Checked: ${candidates[*]}"
+            echo "Workspace layout:"
+            find . -maxdepth 3 -type f -name 'ai-code-review.py' || true
+            exit 1
+          fi
+
+          echo "Using reviewer script at: $script_path"
+          python "$script_path"
 
       - name: Comment summary on PR
         uses: actions/github-script@v7
