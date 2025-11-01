@@ -46,12 +46,12 @@ jobs:
         with:
           python-version: ${{ inputs.python_version }}
 
-      - name: Install dependencies (optional)
+      - name: Install dependencies
         working-directory: reusable/scripts/python
+        shell: bash
         run: |
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-          fi
+          python -m pip install --upgrade pip
+          pip install openai requests PyGithub
 
       - name: Run AI Code Review
         working-directory: reusable
