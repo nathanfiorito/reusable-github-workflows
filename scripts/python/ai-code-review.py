@@ -15,7 +15,22 @@ from openai import OpenAI
 # Configuration
 MODEL = os.getenv("OPENAI_MODEL", "gpt-5-mini-2025-08-07")  # or "gpt-4" for better quality
 MAX_TOKENS = int(os.getenv("OPENAI_MAX_TOKENS", "2000"))
-TEMPERATURE = float(os.getenv("OPENAI_TEMPERATURE", "0.3"))
+def get_temperature() -> float:
+    """Return a temperature compatible with current model constraints."""
+    raw = os.getenv("OPENAI_TEMPERATURE", "1").strip()
+    try:
+        value = float(raw)
+    except ValueError:
+        print(f"⚠️ Invalid OPENAI_TEMPERATURE '{raw}'. Defaulting to 1.0")
+        return 1.0
+
+    if value != 1.0:
+        print(f"ℹ️ OPENAI_TEMPERATURE {value} unsupported for this model. Using 1.0 instead.")
+        return 1.0
+
+    return value
+
+TEMPERATURE = get_temperature()
 
 # File size limits (to avoid token overflow)
 MAX_FILE_SIZE = int(os.getenv("AI_REVIEW_MAX_FILE_SIZE", "10000"))  # characters
