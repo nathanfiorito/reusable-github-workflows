@@ -34,8 +34,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout reusable repo (este repo)
         uses: actions/checkout@v4
+        with:
+          repository: nathanfiorito/reusable-github-workflows
+          path: reusable
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
