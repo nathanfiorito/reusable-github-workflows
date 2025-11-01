@@ -47,12 +47,14 @@ jobs:
           python-version: ${{ inputs.python_version }}
 
       - name: Install dependencies (optional)
+        working-directory: reusable/scripts/python
         run: |
           if [ -f requirements.txt ]; then
             pip install -r requirements.txt
           fi
 
       - name: Run AI Code Review
+        working-directory: reusable
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
