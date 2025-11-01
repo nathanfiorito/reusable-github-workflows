@@ -150,7 +150,7 @@ Provide your review in Markdown format.
                         "content": prompt
                     }
                 ],
-                max_tokens=MAX_TOKENS,
+                max_completion_tokens=MAX_TOKENS,
                 temperature=TEMPERATURE
             )
 
