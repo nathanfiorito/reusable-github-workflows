@@ -58,6 +58,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ inputs.pr_number }}
         run: |
+          ls -la
           echo "Running script: ./scripts/python/ai-code-review.py"
           python ./scripts/python/ai-code-review.py
 
