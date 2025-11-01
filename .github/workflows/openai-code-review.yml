@@ -41,6 +41,38 @@ jobs:
           path: reusable
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Resolver contexto do review
+        id: review_context
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          pr_number=""
+          repo_name="${GITHUB_REPOSITORY}"
+
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            pr_number="${PULL_NUMBER_EVENT}"
+          else
+            pr_number="${INPUT_PR_NUMBER}"
+            if [ -n "${INPUT_REPO_NAME}" ]; then
+              repo_name="${INPUT_REPO_NAME}"
+            fi
+          fi
+
+          if [ -z "${pr_number}" ]; then
+            echo "::error::Não foi possível determinar o número do PR. Informe 'pr_number' ao reutilizar este workflow."
+            exit 1
+          fi
+
+          echo "pr_number=${pr_number}" >> "$GITHUB_OUTPUT"
+          echo "repo_name=${repo_name}" >> "$GITHUB_OUTPUT"
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          PULL_NUMBER_EVENT: ${{ github.event.pull_request.number }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          INPUT_PR_NUMBER: ${{ inputs.pr_number }}
+          INPUT_REPO_NAME: ${{ inputs.repo_name }}
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -58,7 +90,8 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ inputs.pr_number }}
+          PR_NUMBER: ${{ steps.review_context.outputs.pr_number }}
+          REPO_NAME: ${{ steps.review_context.outputs.repo_name }}
         run: |
           ls -la
           echo "Running script: scripts/python/ai-code-review.py"
@@ -75,8 +108,8 @@ jobs:
             if (fs.existsSync(summaryPath)) {
               const summary = fs.readFileSync(summaryPath, 'utf8').trim();
               if (summary.length > 0) {
-                const [owner, repo] = '${{ steps.review-context.outputs.repo-name }}'.split('/');
-                const issueNumber = Number('${{ steps.review-context.outputs.pr-number }}');
+                const [owner, repo] = '${{ steps.review_context.outputs.repo_name }}'.split('/');
+                const issueNumber = Number('${{ steps.review_context.outputs.pr_number }}');
 
                 await github.rest.issues.createComment({
                   owner,
