@@ -70,7 +70,7 @@ jobs:
           github-token: ${{ github.token }}
           script: |
             const fs = require('fs');
-            const summaryPath = 'review-summary.md';
+            const summaryPath = 'reusable/review-summary.md';
 
             if (fs.existsSync(summaryPath)) {
               const summary = fs.readFileSync(summaryPath, 'utf8').trim();
@@ -93,7 +93,7 @@ jobs:
         with:
           name: code-review-results
           path: |
-            review-summary.md
-            review-details.json
+            reusable/review-summary.md
+            reusable/review-details.json
           if-no-files-found: ignore
           retention-days: 30
