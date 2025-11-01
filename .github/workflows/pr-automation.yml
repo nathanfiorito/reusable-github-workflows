@@ -74,10 +74,15 @@ jobs:
       }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout reusable repo (este repo)
         uses: actions/checkout@v4
+        with:
+          repository: nathanfiorito/reusable-github-workflows
+          path: reusable
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Ensure pull request targeting feature base
+        working-directory: reusable
         env:
           DEFAULT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FALLBACK_TOKEN: ${{ secrets.PR_AUTOMATION_TOKEN }}
