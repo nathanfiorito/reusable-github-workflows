@@ -1,0 +1,24 @@
+name: Check Required Environment
+description: Ensure required environment variables are populated.
+inputs:
+  vars:
+    description: Space separated list of environment variable names to validate.
+    required: true
+runs:
+  using: composite
+  steps:
+    - id: validate
+      shell: bash
+      run: |
+        set -euo pipefail
+        missing=0
+        for var in ${{ inputs.vars }}; do
+          value="${!var-}"
+          if [ -z "${value}" ]; then
+            echo "Required configuration '${var}' not provided. Set workflow input or repository variable." >&2
+            missing=1
+          fi
+        done
+        if [ "${missing}" -ne 0 ]; then
+          exit 1
+        fi
