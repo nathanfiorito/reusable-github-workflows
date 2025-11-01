@@ -43,6 +43,26 @@ on:
         required: false
         type: boolean
         default: true
+      release_source:
+        description: Source branch that should trigger the release PR automation.
+        required: false
+        type: string
+        default: develop
+      release_target:
+        description: Base branch for release pull requests.
+        required: false
+        type: string
+        default: main
+      release_title_prefix:
+        description: Title prefix applied to release pull requests.
+        required: false
+        type: string
+        default: Release
+      enable_auto_pr_release:
+        description: Enables the release auto PR job when the workflow is reused.
+        required: false
+        type: boolean
+        default: true
     secrets:
       PR_AUTOMATION_TOKEN:
         description: Optional personal access token used for automated pull requests.
@@ -51,6 +71,7 @@ on:
     branches:
       - 'feature/**'
       - 'hotfix/**'
+      - develop
 
 permissions:
   contents: read
@@ -125,3 +146,37 @@ jobs:
           sed -i 's/\r$//' "$AUTO_PR_SCRIPT"
           chmod +x "$AUTO_PR_SCRIPT"
           bash "$AUTO_PR_SCRIPT" "$HOTFIX_TARGET" "$HOTFIX_TITLE_PREFIX"
+
+  auto-pr-release:
+    name: Open Release PR
+    if: >-
+      ${{
+        (
+          github.event_name != 'workflow_call' ||
+          inputs.enable_auto_pr_release
+        ) && github.ref == format(
+          'refs/heads/{0}',
+          (github.event_name == 'workflow_call' && inputs.release_source) || 'develop'
+        )
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout reusable repo (este repo)
+        uses: actions/checkout@v4
+        with:
+          repository: nathanfiorito/reusable-github-workflows
+          path: reusable
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Ensure release pull request
+        working-directory: reusable
+        env:
+          DEFAULT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FALLBACK_TOKEN: ${{ secrets.PR_AUTOMATION_TOKEN }}
+          AUTO_PR_SCRIPT: scripts/create-pr.sh
+          RELEASE_TARGET: ${{ (github.event_name == 'workflow_call' && inputs.release_target) || 'main' }}
+          RELEASE_TITLE_PREFIX: ${{ (github.event_name == 'workflow_call' && inputs.release_title_prefix) || 'Release' }}
+        run: |
+          sed -i 's/\r$//' "$AUTO_PR_SCRIPT"
+          chmod +x "$AUTO_PR_SCRIPT"
+          bash "$AUTO_PR_SCRIPT" "$RELEASE_TARGET" "$RELEASE_TITLE_PREFIX"
