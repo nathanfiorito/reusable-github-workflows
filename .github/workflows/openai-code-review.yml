@@ -15,6 +15,10 @@ on:
         description: Optional repository (owner/name) override for the PR.
         required: false
         type: string
+      python_version:
+        description: Versão do Python
+        default: "3.12"
+        type: string
     secrets:
       OPENAI_API_KEY:
         required: true
@@ -33,44 +37,25 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Resolve review context
-        id: review-context
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Install dependencies (optional)
         run: |
-          set -euo pipefail
-
-          ls -la
-
-          if [ "${EVENT_NAME}" = "pull_request" ]; then
-            echo "pr-number=${PR_CONTEXT_NUMBER}" >> "$GITHUB_OUTPUT"
-            echo "repo-name=${DEFAULT_REPO}" >> "$GITHUB_OUTPUT"
-          else
-            if [ -z "${PR_NUMBER_INPUT}" ]; then
-              echo "::error::'pr_number' input is required when reusing this workflow."
-              exit 1
-            fi
-
-            echo "pr-number=${PR_NUMBER_INPUT}" >> "$GITHUB_OUTPUT"
-
-            if [ -n "${REPO_NAME_INPUT}" ]; then
-              echo "repo-name=${REPO_NAME_INPUT}" >> "$GITHUB_OUTPUT"
-            else
-              echo "repo-name=${DEFAULT_REPO}" >> "$GITHUB_OUTPUT"
-            fi
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
           fi
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          PR_CONTEXT_NUMBER: ${{ github.event_name == 'pull_request' && github.event.pull_request.number || '' }}
-          DEFAULT_REPO: ${{ github.repository }}
-          PR_NUMBER_INPUT: ${{ inputs.pr_number }}
-          REPO_NAME_INPUT: ${{ inputs.repo_name }}
 
       - name: Run AI Code Review
-        uses: ./.github/actions/ai-code-review
-        with:
-          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
-          github_token: ${{ github.token }}
-          pr_number: ${{ steps.review-context.outputs.pr-number }}
-          repo_name: ${{ steps.review-context.outputs.repo-name }}
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: |
+          echo "Running script: ./scripts/python/ai-code-review.py"
+          python ./scripts/python/ai-code-review.py
 
       - name: Comment summary on PR
         uses: actions/github-script@v7
